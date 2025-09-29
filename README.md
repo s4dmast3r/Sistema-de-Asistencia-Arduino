@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # RFID Attendance System
 
 A complete monorepo solution for RFID-based attendance tracking using Arduino UNO + RC522, with real-time web dashboard.
@@ -310,3 +311,7 @@ This project serves as a complete reference implementation. Feel free to:
 ## 📄 License
 
 This project is open source and available under the MIT License.
+=======
+# Sistema-de-Asistencia-Arduino
+Sistema creado para el registro de entrada y salida de personal. Hecho y trabajado en diferentes tecnologías junto a circuitos Arduino.
+>>>>>>> ba0947e322b4bca6da8033dfd0da8d1c59951fe4
