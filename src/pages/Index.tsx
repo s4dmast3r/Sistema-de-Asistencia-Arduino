@@ -11,6 +11,7 @@ import { AttendanceTable } from "@/components/attendance/AttendanceTable";
 import { PresentUsers } from "@/components/attendance/PresentUsers";
 import { AttendanceFiltersCard } from "@/components/attendance/AttendanceFilters";
 import { UserManagement } from "@/components/users/UserManagement";
+import { useReaderStatus } from "@/hooks/useReaderStatus";
 import { type AttendanceFilters } from "@/lib/api";
 import heroImage from "@/assets/hero-attendance.jpg";
 

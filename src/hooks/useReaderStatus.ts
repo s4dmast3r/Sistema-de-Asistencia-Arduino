@@ -1,6 +1,5 @@
 // src/hooks/useReaderStatus.ts
-// src/hooks/useReaderStatus.ts
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 type SerialStatus = { path: string | null; isOpen: boolean };
@@ -15,7 +14,7 @@ function apiBase(): string {
 export function useReaderStatus() {
   const base = apiBase();
 
-  // Histeresis
+  // Histeresis (sin cambiar tus valores)
   const REQ_SUCC_FOR_CONNECTED = 2;
   const REQ_FAIL_FOR_DISCONNECTED = 3;
 
@@ -27,6 +26,9 @@ export function useReaderStatus() {
   const failRef = useRef(0);
   const lastConnectedRef = useRef<Date | null>(null);
 
+  // Tick para forzar re-render cuando cambian las refs
+  const [tick, setTick] = useState(0);
+
   const query = useQuery<SerialStatus>({
     queryKey: ["serial-status"],
     queryFn: async () => {
@@ -34,39 +36,45 @@ export function useReaderStatus() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return (await res.json()) as SerialStatus;
     },
-    refetchInterval: REFRESH_MS,         // ✅ v5
-    refetchOnWindowFocus: true,          // ✅ v5
-    staleTime: Math.max(0, REFRESH_MS - 1000), // ✅ v5
-    gcTime: 5 * 60 * 1000,               // opcional (tiempo en caché)
-    // ❌ NO usar keepPreviousData ni refetchIntervalInBackground en v5
+    refetchInterval: REFRESH_MS,
+    refetchOnWindowFocus: true,
+    staleTime: Math.max(0, REFRESH_MS - 1000),
+    gcTime: 5 * 60 * 1000,
   });
 
-  // Actualiza contadores (histeresis)
+  // Actualiza contadores (histeresis) y fuerza re-render
   useEffect(() => {
+    let changed = false;
+
     if (query.isSuccess && query.data) {
       if (query.data.isOpen) {
         succRef.current += 1;
         failRef.current = 0;
         lastConnectedRef.current = new Date();
+        changed = true;
       } else {
         failRef.current += 1;
         succRef.current = 0;
+        changed = true;
       }
     } else if (query.isError) {
       failRef.current += 1;
       succRef.current = 0;
+      changed = true;
     }
+
+    if (changed) setTick((n) => n + 1);
   }, [query.isSuccess, query.isError, query.data]);
 
-  // Estado estable
+  // Estado estable (depende de tick para recalcular)
   const status = useMemo<"connected" | "connecting" | "disconnected">(() => {
     if (!query.isFetched) return "connecting";
     if (succRef.current >= REQ_SUCC_FOR_CONNECTED) return "connected";
     if (failRef.current >= REQ_FAIL_FOR_DISCONNECTED) return "disconnected";
     return "connecting";
-  }, [query.isFetched]);
+  }, [query.isFetched, tick]);
 
-  // Forzar un refetch manual
+  // Forzar un refetch manual (sin cambiar tu API)
   const reconnect = () => {
     succRef.current = 0;
     query.refetch();
