@@ -1,5 +1,6 @@
+// src/pages/Index.tsx
 // RFID Attendance System Dashboard
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +12,7 @@ import { AttendanceTable } from "@/components/attendance/AttendanceTable";
 import { PresentUsers } from "@/components/attendance/PresentUsers";
 import { AttendanceFiltersCard } from "@/components/attendance/AttendanceFilters";
 import { UserManagement } from "@/components/users/UserManagement";
-import { useReaderStatus } from "@/hooks/useReaderStatus";
+// import { useReaderStatus } from "@/hooks/useReaderStatus"; // (opcional) no utilizado aquí
 import { type AttendanceFilters } from "@/lib/api";
 import heroImage from "@/assets/hero-attendance.jpg";
 
@@ -30,9 +31,31 @@ const DashboardContent = () => {
 
   const [attendanceFilters, setAttendanceFilters] = useState<AttendanceFilters>({});
 
+  // --- NUEVO: control de pestaña + refs para scroll suave ---
+  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "reports">("dashboard");
+  const tabsRef = useRef<HTMLDivElement | null>(null);
+  const activityRef = useRef<HTMLDivElement | null>(null);
+
   const handleFiltersChange = (filters: AttendanceFilters) => {
     setAttendanceFilters(filters);
-    refetchAttendance();
+    refetchAttendance(filters);
+  };
+
+  // Helpers de scroll
+  const scrollTo = (el: HTMLElement | null) => {
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const goToActivity = () => {
+    setActiveTab("dashboard");
+    // esperar al cambio de pestaña antes de hacer scroll
+    requestAnimationFrame(() => scrollTo(activityRef.current));
+  };
+
+  const goToUsers = () => {
+    setActiveTab("users");
+    requestAnimationFrame(() => scrollTo(tabsRef.current));
   };
 
   return (
@@ -54,8 +77,8 @@ const DashboardContent = () => {
                 </div>
               </div>
             </div>
-            
-            <ConnectionStatus 
+
+            <ConnectionStatus
               isConnected={isConnected}
               lastEvent={lastEvent}
               onReconnect={() => window.location.reload()}
@@ -69,26 +92,33 @@ const DashboardContent = () => {
         <div className="container mx-auto px-6 py-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             <div>
-              <h2 className="text-4xl font-bold mb-4">
-                Smart Access Control
-              </h2>
+              <h2 className="text-4xl font-bold mb-4">Smart Access Control</h2>
               <p className="text-xl mb-6 text-white/90">
-                Monitor attendance in real-time with RFID technology. 
+                Monitor attendance in real-time with RFID technology.
                 Secure, reliable, and easy to use.
               </p>
-              <div className="flex space-x-4">
-                <Button variant="secondary" size="lg">
+              <div className="flex flex-wrap gap-4">
+                {/* View Activity -> baja a la tabla */}
+                <Button variant="secondary" size="lg" onClick={goToActivity}>
                   <Activity className="mr-2 h-5 w-5" />
                   View Activity
                 </Button>
-                <Button variant="outline" size="lg" className="border-white/20 text-white hover:bg-white/10">
+
+                {/* Manage Users -> cambia a la pestaña Users y hace scroll al bloque */}
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={goToUsers}
+                  className="bg-white/15 text-white border border-white/30 hover:bg-white/25 shadow-sm backdrop-blur rounded-lg"
+                >
                   <Settings className="mr-2 h-5 w-5" />
                   Manage Users
                 </Button>
               </div>
             </div>
+
             <div className="relative">
-              <img 
+              <img
                 src={heroImage}
                 alt="RFID Attendance Control System"
                 className="rounded-xl shadow-2xl w-full h-auto"
@@ -112,62 +142,58 @@ const DashboardContent = () => {
         <Separator className="my-8" />
 
         {/* Dashboard Tabs */}
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="dashboard">
-              <Activity className="w-4 h-4 mr-2" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="users">
-              <Settings className="w-4 h-4 mr-2" />
-              User Management
-            </TabsTrigger>
-            <TabsTrigger value="reports">
-              <Shield className="w-4 h-4 mr-2" />
-              Reports
-            </TabsTrigger>
-          </TabsList>
+        <div ref={tabsRef}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="dashboard">
+                <Activity className="w-4 h-4 mr-2" />
+                Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="users">
+                <Settings className="w-4 h-4 mr-2" />
+                User Management
+              </TabsTrigger>
+              <TabsTrigger value="reports">
+                <Shield className="w-4 h-4 mr-2" />
+                Reports
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-6">
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-              {/* Present Users - Takes full width on mobile, 1 column on xl */}
-              <PresentUsers
-                presentUsers={presentUsers}
-                isLoading={isLoadingPresent}
-                className="xl:col-span-1"
-              />
-
-              {/* Attendance Table - Takes full width on mobile, 3 columns on xl */}
-              <div className="xl:col-span-3 space-y-6">
-                <AttendanceFiltersCard onFiltersChange={handleFiltersChange} />
-                <AttendanceTable
-                  attendance={attendance}
-                  isLoading={isLoadingAttendance}
+            {/* Dashboard Tab */}
+            <TabsContent value="dashboard" className="space-y-6">
+              <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                {/* Present Users */}
+                <PresentUsers
+                  presentUsers={presentUsers}
+                  isLoading={isLoadingPresent}
+                  className="xl:col-span-1"
                 />
+
+                {/* Attendance Table */}
+                <div className="xl:col-span-3 space-y-6" ref={activityRef}>
+                  <AttendanceFiltersCard onFiltersChange={handleFiltersChange} />
+                  <AttendanceTable attendance={attendance} isLoading={isLoadingAttendance} />
+                </div>
               </div>
-            </div>
-          </TabsContent>
+            </TabsContent>
 
-          {/* Users Tab */}
-          <TabsContent value="users" className="space-y-6">
-            <UserManagement
-              users={users}
-              isLoading={isLoadingUsers}
-            />
-          </TabsContent>
+            {/* Users Tab */}
+            <TabsContent value="users" className="space-y-6">
+              <UserManagement users={users} isLoading={isLoadingUsers} />
+            </TabsContent>
 
-          {/* Reports Tab */}
-          <TabsContent value="reports" className="space-y-6">
-            <div className="text-center py-12">
-              <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">Reports Coming Soon</h3>
-              <p className="text-muted-foreground">
-                Detailed attendance reports and analytics will be available here.
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
+            {/* Reports Tab */}
+            <TabsContent value="reports" className="space-y-6">
+              <div className="text-center py-12">
+                <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium">Reports Coming Soon</h3>
+                <p className="text-muted-foreground">
+                  Detailed attendance reports and analytics will be available here.
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </main>
 
       {/* Footer */}
@@ -176,9 +202,7 @@ const DashboardContent = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Shield className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">
-                RFID Attendance System
-              </span>
+              <span className="text-sm text-muted-foreground">RFID Attendance System</span>
             </div>
             <div className="text-sm text-muted-foreground">
               Built with React + Vite + Arduino RC522

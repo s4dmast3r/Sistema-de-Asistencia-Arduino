@@ -47,6 +47,67 @@ const qListAtt     = db.prepare(`
   FROM attendance a JOIN users u ON u.id = a.user_id
   ORDER BY a.ts DESC, a.id DESC LIMIT ?
 `);
+
+// ===== Helpers para filtros de fecha/hora =====
+
+// Normaliza "YYYY-MM-DD" o "MM/DD/YYYY" -> "YYYY-MM-DD"
+function normalizeDateString(s) {
+  if (!s || typeof s !== 'string') return null;
+  const t = s.trim();
+  if (!t) return null;
+
+  // YYYY-MM-DD
+  const m1 = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m1) return `${m1[1]}-${m1[2]}-${m1[3]}`;
+
+  // MM/DD/YYYY (como el datepicker del front)
+  const m2 = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m2) {
+    const mm = String(+m2[1]).padStart(2, '0');
+    const dd = String(+m2[2]).padStart(2, '0');
+    const yyyy = m2[3];
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+// Normaliza "HH:mm", "HH:mm:ss", "h:mm AM/PM" -> "HH:mm:ss" (24h)
+function normalizeTimeString(s, fallback = '00:00:00') {
+  if (!s || typeof s !== 'string') return fallback;
+  const t = s.trim();
+  if (!t) return fallback;
+
+  // h:mm[:ss] [AM|PM]
+  let m = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!m) return fallback;
+
+  let h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  const sec = m[3] ? parseInt(m[3], 10) : 0;
+  const ap = m[4] ? m[4].toUpperCase() : null;
+
+  if (ap === 'PM' && h < 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  if (h < 0 || h > 23 || min > 59 || sec > 59) return fallback;
+
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+// Construye rango [start, end] si viene "date" (times opcionales)
+function buildRangeFromQuery(q) {
+  const d = normalizeDateString(q.date);
+  if (!d) return null; // sin date -> no filtramos (retro-compatible)
+
+  const from = normalizeTimeString(q.from, '00:00:00');
+  const to   = normalizeTimeString(q.to,   '23:59:59');
+
+  // Strings "YYYY-MM-DD HH:MM:SS" funcionan bien para BETWEEN en SQLite
+  return {
+    start: `${d} ${from}`,
+    end:   `${d} ${to}`,
+  };
+}
+
 // --- EXTRA QUERIES PARA USUARIOS ---
 const qUpdateUser        = db.prepare('UPDATE users SET name = COALESCE(?, name), card_uid = COALESCE(?, card_uid), active = COALESCE(?, active) WHERE id = ?');
 const qDeleteUser        = db.prepare('DELETE FROM users WHERE id = ?');
@@ -171,8 +232,30 @@ app.delete('/api/users/:id', (req, res) => {
 
 app.get('/api/attendance', (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 1000);
-  res.json(qListAtt.all(limit));
+  const range = buildRangeFromQuery(req.query);
+
+  if (!range) {
+    // Comportamiento anterior (sin filtros): últimos registros
+    return res.json(qListAtt.all(limit));
+  }
+
+  try {
+    const stmt = db.prepare(`
+      SELECT a.id, a.ts, a.direction,
+             u.id AS user_id, u.name, u.card_uid
+      FROM attendance a
+      JOIN users u ON u.id = a.user_id
+      WHERE a.ts BETWEEN ? AND ?
+      ORDER BY a.ts DESC, a.id DESC
+      LIMIT ?
+    `);
+    const rows = stmt.all(range.start, range.end, limit);
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: 'DB error', detail: e.message });
+  }
 });
+
 
 app.get('/api/present', (req, res) => {
   const users = qListUsers.all();
