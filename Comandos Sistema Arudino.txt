@@ -1,0 +1,6 @@
+$env:SERIAL_PATH="COM5"; $env:PORT="3000"; node .\server.cjs
+
+npm run dev
+
+
+favicon.ico
