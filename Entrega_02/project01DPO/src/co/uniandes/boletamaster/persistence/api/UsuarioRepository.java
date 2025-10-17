@@ -1,0 +1,1 @@
+package co.uniandes.boletamaster.persistence.api; public interface UsuarioRepository { void crearUsuario(String login,String nombre,String email) throws Exception; boolean existeLogin(String login) throws Exception; }

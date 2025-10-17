@@ -1,0 +1,1 @@
+package co.uniandes.boletamaster.persistence.api; public interface CredencialRepository { void guardar(String login,String hash,String salt) throws Exception; String obtenerHash(String login) throws Exception; String obtenerSalt(String login) throws Exception; }

@@ -1,0 +1,28 @@
+
+CREATE TABLE IF NOT EXISTS usuario (
+  login TEXT PRIMARY KEY,
+  nombre TEXT NOT NULL,
+  email  TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS credencial (
+  login TEXT PRIMARY KEY REFERENCES usuario(login) ON DELETE CASCADE,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS empleado (
+  login TEXT PRIMARY KEY REFERENCES usuario(login) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS organizador (
+  login TEXT PRIMARY KEY REFERENCES empleado(login) ON DELETE CASCADE,
+  empresa TEXT
+);
+CREATE TABLE IF NOT EXISTS administrador (
+  login TEXT PRIMARY KEY REFERENCES empleado(login) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS comprador (
+  login TEXT PRIMARY KEY REFERENCES usuario(login) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS billetera (
+  comprador_login TEXT PRIMARY KEY REFERENCES comprador(login) ON DELETE CASCADE,
+  saldo_centavos INTEGER NOT NULL
+);

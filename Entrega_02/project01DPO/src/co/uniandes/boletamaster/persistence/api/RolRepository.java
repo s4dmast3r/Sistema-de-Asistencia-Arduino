@@ -1,0 +1,1 @@
+package co.uniandes.boletamaster.persistence.api; public interface RolRepository { void registrarComprador(String login,long saldoInicial) throws Exception; void registrarEmpleado(String login) throws Exception; void registrarOrganizador(String login,String empresa) throws Exception; void registrarAdministrador(String login) throws Exception; }
